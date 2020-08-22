@@ -2,6 +2,8 @@ import GetOldTweets3 as got
 import datetime, time
 import csv
 import numpy as np
+import statistics
+from scipy.stats import ttest_ind
 
 
 class DateAndTime:
@@ -158,7 +160,7 @@ class TwitterDatabaseAPI:
                 writer.writerow(line)
 
 
-# LIWC API Build 1.2
+# LIWC API Build 1.2.1 (Bug Fixes)
 class LinguisticInquiryWordCountAPI:
 
     def __init__(self):
@@ -257,12 +259,11 @@ class LinguisticInquiryWordCountAPI:
                                 column_name = 'Column ' + str(column_num)
                                 header.append(column_name)
                             self.target_array.append(header)
-                        else:
-                            self.target_array.append(row)
+                        self.target_array.append(row)
                         row_num += 1
 
             elif self.target_type == '.txt':
-                pass
+                pass # Not implemented.
 
     # LIWC Mechanics
     def set_input_target_columns(self, target_columns):
@@ -372,12 +373,43 @@ class LinguisticInquiryWordCountAPI:
                 writer.writerow(line)
 
 
-# Moral Foundation Research API Build 1.0
+# Moral Foundation Research API Build 1.1
 class MoralFoundationsResearchAPI:
+    '''
+    MoralFoundationsResearchAPI Build v1.1
+    Updates
+    - Added Mean and Standard Deviation to Statistics Inference Fucntion
+    - Added Two Sample T-Test function
+    '''
+
+    class NormalizedUserData:
+
+        def __init__(self):
+            self.data = []
+            self.count = 0
 
     def __init__(self, liwc_object):
         self.liwc = liwc_object
         self.results = self.liwc.results
+        self.normalized_results = []
+
+    def reset_results(self):
+        self.results = self.liwc.results
+
+    def get_column(self, index, array=None):
+        column = []
+        row_num = 0
+        header_rows = -1
+
+        if array is None:
+            array = self.results
+            header_rows = 1
+
+        for row in array:
+            if row_num > header_rows:
+                column.append(float(row[index]))
+            row_num += 1
+        return column
 
     def separate_governor_political_parties(self, political_parties_file):
         error = False
@@ -403,6 +435,87 @@ class MoralFoundationsResearchAPI:
 
         if not error:
             self.results = np.hstack((political_parties, self.results))
+
+    def normalize_tweets_by_user(self, user_name_column, target_columns):
+        '''
+        Normalizes values from target columns. Other columns are copied from the first entry for the user.
+        '''
+
+        normalized_user_list = {}
+        user_name_column -= 1
+        row_num = 0
+
+        # Enter each user_name row as one normalized entry
+        for row in self.results:
+            if row_num < 2:
+                self.normalized_results.append(self.results[row_num])
+            else:
+                user_name = row[user_name_column]
+                if user_name in normalized_user_list.keys():
+                    normalized_user_data = normalized_user_list[user_name]
+                    for column in target_columns:
+                        index = column - 1
+                        row_array = [row]
+                        normalized_user_data.data[index] = str(
+                            (float(normalized_user_data.data[index]) + self.get_column(index, row_array)[0]))
+                else:
+                    normalized_user_data = self.NormalizedUserData()
+                    normalized_user_data.data = row
+                    normalized_user_list[user_name] = normalized_user_data
+                normalized_user_data.count += 1
+            row_num += 1
+
+        for user_name in normalized_user_list:
+            row = normalized_user_list[user_name]
+            for column in target_columns:
+                index = column - 1
+                normalized_user_list[user_name].data[index] = str(float(row.data[index])/row.count)
+
+            self.normalized_results.append(normalized_user_list[user_name].data)
+
+    def statistical_inference(self, target_columns):
+        mean = []
+        stddev = []
+        for column in target_columns:
+            index = column - 1
+            column = self.get_column(index)
+            mean.append(statistics.mean(column))
+            stddev.append(statistics.stdev(column))
+
+        for index in range(len(target_columns)):
+            print('Average for ' + api.results[0][target_columns[index] - 1] + ' is ' + str(
+                round(mean[index], 4)))
+            print('Standard Deviation for ' + api.results[0][target_columns[index] - 1] + ' is ' + str(
+                round(stddev[index], 4)))
+            print('')
+
+    def two_sample_t_test(self, condition_column, condition_1, condition_2, target_columns):
+
+        condition_column -= 1
+
+        condition_1_rows = []
+        condition_2_rows = []
+
+        # Separate the data into two arrays based on conditions in a column based on the conditions
+        for row in self.results:
+            condition_element = row[condition_column]
+            if condition_element == condition_1:
+                condition_1_rows.append(row)
+            elif condition_element == condition_2:
+                condition_2_rows.append(row)
+
+        # Find the column data values for both conditions and perform t_test
+        for column in target_columns:
+            index = column - 1
+
+            row_name = self.results[0][index]
+            condition_1_column = self.get_column(index, condition_1_rows)
+            condition_2_column = self.get_column(index, condition_2_rows)
+
+            t, p = ttest_ind(condition_1_column, condition_2_column, equal_var=False)
+
+            print(row_name)
+            print('t = ' + str(t) + '. p = ' + str(p) + '.\n')
 
     def export_to_csv(self, csv_name):
         with open(csv_name, mode='w', encoding='utf-16') as csv_writer:
@@ -431,12 +544,13 @@ if __name__ == "__main__":
     '''
     --------------- LIWC Analysis ----------------
     '''
+
     # Initialized Variables
     dictionary = 'Dictionaries/mfd2.0.dic'
-    target_file = 'test.csv'
+    target_file = 'Twitter Databases/test.csv'
     target_type = '.csv'
     target_columns = [3]
-    export_file = 'test_analysis_3.csv'
+    export_file = 'LIWC Analysis Databses/test_analysis_3.csv'
     undesired_list_file = 'Input Configuration/undesired_words.csv'
 
     # Operations
@@ -455,5 +569,18 @@ if __name__ == "__main__":
     ------------- Moral Foundations Research ----------
     '''
     api = MoralFoundationsResearchAPI(liwc)
-    api.separate_governor_political_parties('Input Configuration/political_parties.csv')
-    api.export_to_csv('test_political_parties_1.csv')
+
+    political_parties_file = 'Input Configuration/political_parties.csv'
+    export_file = 'Moral Foundations Databases/test_political_parties_1.csv'
+    statistical_inference_columns = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+
+    api.separate_governor_political_parties(political_parties_file)
+    api.export_to_csv(export_file)
+
+    api.normalize_tweets_by_user(2, statistical_inference_columns)
+
+    api.results = api.normalized_results
+
+    api.statistical_inference(statistical_inference_columns)
+    api.two_sample_t_test(1, 'R', 'D', statistical_inference_columns)
+
