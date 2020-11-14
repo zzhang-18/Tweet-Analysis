@@ -6,4 +6,5 @@ As COVID-19 spread throughout the United States, governors and healthcare profes
 The most significant finding is that Democratic governors mentioned death 4.3 times the rate of Republican governors in their COVID-19 tweets. In 2019, Democratic governors still mentioned death at 2.09 the rate of Republicans. We believe we have substantial evidence that Republican governors are less comfortable talking about death than their Democratic counterparts.
 
 We also found that Democratic governors tweet about masks and solutions more often than Republicans. However, there isn’t a large difference between the proportion of COVID-19 tweets, tweets about the economy, tweets about stay-at-home measures, tweets about vaccines, and tweets containing “science-like” words between governors of the two parties. 
+
 HPs tweeted about death and vaccines more than the governors. They also tweeted about solutions and testing at a similar rate compared to governors and mentioned lockdowns, the economy, and masks less frequently. We ran linear regressions and did not find conclusive evidence that state-level COVID-19 situations impacted how governors tweet about the pandemic on Twitter.
